@@ -1,0 +1,61 @@
+name: taskman
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-taskman}
+      POSTGRES_USER: ${POSTGRES_USER:-taskman}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      Database__ConnectionString: "${Database__ConnectionString:-Host=db;Port=5432;Database=taskman;Username=taskman;Password=change-me}"
+      Storage__AttachmentsPath: ${Storage__AttachmentsPath:-/data/attachments}
+      Storage__KeysPath: ${Storage__KeysPath:-/data/keys}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrator}
+      AUTH__COOKIESECURE: ${AUTH__COOKIESECURE:-false}
+      Auth__SessionIdleHours: ${Auth__SessionIdleHours:-8}
+      Auth__SessionAbsoluteDays: ${Auth__SessionAbsoluteDays:-7}
+      Auth__LoginPermitLimit: ${Auth__LoginPermitLimit:-10}
+      Auth__LoginWindowSeconds: ${Auth__LoginWindowSeconds:-60}
+      SWAGGER__ENABLED: ${SWAGGER__ENABLED:-false}
+      ForwardedHeaders__KnownNetworks: ${ForwardedHeaders__KnownNetworks:-172.16.0.0/12}
+    volumes:
+      - attachments:/data/attachments
+      - keys:/data/keys
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8080"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  attachments:
+  keys:
