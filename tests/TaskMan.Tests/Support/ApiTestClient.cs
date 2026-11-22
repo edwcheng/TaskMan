@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using TaskMan.Infrastructure.Auth;
@@ -157,6 +158,76 @@ internal static class ApiTestClient
 
         return payload!;
     }
+
+    public static async Task<HttpResponseMessage> PostMultipartAsync(
+        HttpClient client,
+        string path,
+        string fileName,
+        byte[] content,
+        string contentType)
+    {
+        using var form = new MultipartFormDataContent();
+
+        var fileContent = new ByteArrayContent(content);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+
+        form.Add(fileContent, "file", fileName);
+
+        // Awaiting before the form is disposed keeps the request content alive
+        // while the client sends it.
+        return await client.PostAsync(path, form);
+    }
+
+    public static async Task<AttachmentPayload> UploadAttachmentAsync(
+        HttpClient client,
+        string path,
+        string fileName,
+        byte[] content,
+        string contentType)
+    {
+        var response = await PostMultipartAsync(client, path, fileName, content, contentType);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<AttachmentPayload>();
+        Assert.NotNull(payload);
+
+        return payload!;
+    }
+
+    public static async Task<ReplyPayload> CreateReplyAsync(
+        HttpClient client,
+        Guid taskId,
+        string body)
+    {
+        var response = await client.PostAsJsonAsync(
+            $"/api/tasks/{taskId}/replies",
+            new { body });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<ReplyPayload>();
+        Assert.NotNull(payload);
+
+        return payload!;
+    }
+
+    public static async Task<PagedPayload<ReplyPayload>> GetReplyPageAsync(
+        HttpClient client,
+        Guid taskId,
+        int page = 1,
+        int pageSize = 50)
+    {
+        var response = await client.GetAsync(
+            $"/api/tasks/{taskId}/replies?page={page}&pageSize={pageSize}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedPayload<ReplyPayload>>();
+        Assert.NotNull(payload);
+
+        return payload!;
+    }
 }
 
 internal sealed record UserPayload(
@@ -240,5 +311,13 @@ internal sealed record TaskDetailPayload(
     DateTimeOffset UpdatedAt,
     DateTimeOffset LastActivityAt,
     int ReplyCount,
+    IReadOnlyList<AttachmentPayload> Attachments);
+
+internal sealed record ReplyPayload(
+    Guid Id,
+    string Body,
+    UserSummaryPayload Author,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
     IReadOnlyList<AttachmentPayload> Attachments);
 

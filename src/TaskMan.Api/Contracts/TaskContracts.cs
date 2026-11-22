@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using TaskMan.Domain.Enums;
 
 namespace TaskMan.Api.Contracts;
@@ -14,6 +15,13 @@ public sealed record AttachmentResponse(
     long SizeBytes,
     UserSummaryResponse UploadedBy,
     DateTimeOffset CreatedAt);
+
+// A complex type lets Swagger document the multipart upload; a bare IFormFile
+// parameter is not supported by the document generator.
+public sealed class UploadAttachmentRequest
+{
+    public IFormFile? File { get; set; }
+}
 
 public sealed record TaskListItemResponse(
     Guid Id,

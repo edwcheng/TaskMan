@@ -7,13 +7,16 @@ using TaskMan.Domain.Entities;
 using TaskMan.Domain.Enums;
 using TaskMan.Domain.Tasks;
 using TaskMan.Infrastructure.Persistence;
+using TaskMan.Infrastructure.Storage;
 
 namespace TaskMan.Api.Controllers;
 
 [ApiController]
 [Route("api/tasks")]
 [Authorize]
-public sealed class TasksController(AppDbContext db) : ControllerBase
+public sealed class TasksController(
+    AppDbContext db,
+    IAttachmentStore attachments) : ControllerBase
 {
     private const int DefaultPageSize = 25;
     private const int MaxPageSize = 100;
@@ -287,8 +290,30 @@ public sealed class TasksController(AppDbContext db) : ControllerBase
             return Forbid();
         }
 
+        // Collect attachment IDs before the cascade so the files on disk can be
+        // removed after the rows are gone.
+        var taskAttachments = await db.Attachments
+            .Where(x => x.TaskId == task.Id)
+            .ToListAsync(cancellationToken);
+
+        var replyIds = await db.Replies
+            .Where(x => x.TaskId == task.Id)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        var replyAttachments = replyIds.Count > 0
+            ? await db.Attachments
+                .Where(x => x.ReplyId != null && replyIds.Contains(x.ReplyId!.Value))
+                .ToListAsync(cancellationToken)
+            : [];
+
         db.Tasks.Remove(task);
         await db.SaveChangesAsync(cancellationToken);
+
+        foreach (var attachment in taskAttachments.Concat(replyAttachments))
+        {
+            attachments.Delete(attachment.Id);
+        }
 
         return NoContent();
     }

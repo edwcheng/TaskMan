@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using TaskMan.Domain.Entities;
 using TaskMan.Infrastructure.Auth;
 using TaskMan.Infrastructure.Persistence;
@@ -29,6 +30,10 @@ public static class ServiceCollectionExtensions
         storagePaths.EnsureWritable();
 
         services.AddSingleton(storagePaths);
+        services.AddSingleton<IAttachmentStore>(
+            sp => new DiskAttachmentStore(
+                storagePaths.AttachmentsPath,
+                sp.GetRequiredService<ILogger<DiskAttachmentStore>>()));
         services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<DatabaseInitializer>();

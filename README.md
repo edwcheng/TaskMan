@@ -2,7 +2,7 @@
 
 Forum-style task management. Tasks live in forums, carry a Markdown body, attachments, an assignee, status, priority, tag, and due date, and are discussed through replies.
 
-**Current state:** Phase 3 forums and tasks. The API migrates PostgreSQL on startup, seeds the first administrator, assigns task numbers from a database sequence, and serves cookie-authenticated auth, user, forum, and task endpoints. Replies and attachments arrive in Phase 4; the Vue SPA in Phase 5.
+**Current state:** Phase 4 replies and attachments. The API migrates PostgreSQL on startup, seeds the first administrator, assigns task numbers from a database sequence, and serves cookie-authenticated auth, user, forum, task, reply, and attachment endpoints. The Vue SPA arrives in Phase 5.
 
 The full design is in [PLAN.md](PLAN.md).
 
@@ -110,7 +110,7 @@ Task permissions follow the API matrix: authors and administrators can edit or d
 | `GET /api/tasks/{id}` | authenticated | Task detail with attachment metadata |
 | `PUT /api/tasks/{id}` | author/admin | Full task update, including forum moves |
 | `PATCH /api/tasks/{id}/status` | author/assignee/admin | Status-only update |
-| `DELETE /api/tasks/{id}` | author/admin | Delete a task and its replies |
+| `DELETE /api/tasks/{id}` | author/admin | Delete a task, its replies, and their attachment files |
 
 List filters are `status` and `priority` (repeatable), `assigneeId` (a user ID or `me`), `tag`, `q` (case-insensitive title/body/tag search), `dueBefore`, `dueAfter`, and `overdue`. Pagination uses `page` and `pageSize` (default 25, maximum 100). Sort with `sort=activity` (default), `created`, `due`, or `priority`.
 
@@ -125,6 +125,35 @@ curl -b cookies.txt \
 ```
 
 Swagger UI is enabled in Development or when `SWAGGER__ENABLED=true`, at `http://localhost:5000/swagger` (or `/swagger/` through Nginx).
+
+## Replies and attachments
+
+Replies are flat, chronological discussions on a task. Any authenticated user can reply to any task, including tasks in archived forums, and can edit or delete their own replies; administrators can edit or delete any reply. Creating a reply updates the task's activity timestamp. Reply lists paginate 50 per page.
+
+Attachments are stored on disk with their metadata in the database. Any authenticated user may upload to any task or reply, up to 25 MB per file and 10 attachments per task or reply. Deleting an attachment is limited to the uploader, the author of the parent task or reply, or an administrator. Deleting a task or reply removes its attachment rows and files.
+
+| Endpoint | Access | Purpose |
+|---|---|---|
+| `GET /api/tasks/{taskId}/replies` | authenticated | Paged replies, chronological (50 per page) |
+| `POST /api/tasks/{taskId}/replies` | authenticated | Create a reply; updates task activity |
+| `PUT /api/replies/{id}` | reply author/admin | Edit the reply body |
+| `DELETE /api/replies/{id}` | reply author/admin | Delete a reply and its attachments |
+| `POST /api/tasks/{taskId}/attachments` | authenticated | Upload one file (multipart) |
+| `POST /api/replies/{replyId}/attachments` | authenticated | Upload one file (multipart) |
+| `GET /api/attachments/{id}` | authenticated | Stream the file from disk; add `?inline=1` for raster images |
+| `DELETE /api/attachments/{id}` | uploader/parent author/admin | Delete the row and the file |
+
+Downloads are served with `Content-Disposition: attachment` (or `inline` when inline serving applies), `X-Content-Type-Options: nosniff`, and an RFC 5987-encoded filename. Inline serving is limited to PNG, JPEG, GIF, and WebP, and the file extension must match the stored content type.
+
+```bash
+curl -b cookies.txt \
+  -H 'X-Requested-With: TaskMan' \
+  -F 'file=@notes.txt' \
+  http://localhost:5000/api/tasks/TASK_ID/attachments
+
+curl -b cookies.txt \
+  http://localhost:5000/api/tasks/TASK_ID/replies
+```
 
 ## Database and migrations
 

@@ -2,7 +2,7 @@
 
 **Status:** Approved (v2.1)  
 **Date:** 19 November 2026  
-**Delivery status:** Phase 0 complete · Phase 1 complete · Phase 2 complete · Phase 3 complete · Phase 4 next  
+**Delivery status:** Phase 0 complete · Phase 1 complete · Phase 2 complete · Phase 3 complete · Phase 4 complete · Phase 5 next  
 **Target:** Forum-style task management application
 
 ### Revision summary (v1 → v2)

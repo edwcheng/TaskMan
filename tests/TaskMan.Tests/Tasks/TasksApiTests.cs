@@ -582,6 +582,11 @@ public sealed class TasksApiTests(ApiFixture fixture)
         Assert.True(paths.TryGetProperty("/api/tasks", out _));
         Assert.True(paths.TryGetProperty("/api/tasks/{id}", out _));
         Assert.True(paths.TryGetProperty("/api/tasks/{id}/status", out _));
+        Assert.True(paths.TryGetProperty("/api/tasks/{taskId}/replies", out _));
+        Assert.True(paths.TryGetProperty("/api/replies/{id}", out _));
+        Assert.True(paths.TryGetProperty("/api/tasks/{taskId}/attachments", out _));
+        Assert.True(paths.TryGetProperty("/api/replies/{replyId}/attachments", out _));
+        Assert.True(paths.TryGetProperty("/api/attachments/{id}", out _));
 
         var ui = await client.GetAsync("/swagger/index.html");
         Assert.Equal(HttpStatusCode.OK, ui.StatusCode);
