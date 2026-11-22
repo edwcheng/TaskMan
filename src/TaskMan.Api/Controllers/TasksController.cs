@@ -339,8 +339,10 @@ public sealed class TasksController(AppDbContext db) : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(query.Tag))
         {
+            // Tags are stored lower-cased (see TaskRules.NormalizeTag), so a simple
+            // case-insensitive exact match on the column is index-friendly.
             var tag = query.Tag.Trim().ToLowerInvariant();
-            tasks = tasks.Where(x => x.Tag != null && x.Tag.ToLower() == tag);
+            tasks = tasks.Where(x => x.Tag == tag);
         }
 
         if (!string.IsNullOrWhiteSpace(query.Q))
@@ -366,7 +368,9 @@ public sealed class TasksController(AppDbContext db) : ControllerBase
 
         if (query.Overdue == true)
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            // Due dates are calendar dates; interpret "today" in the server's local
+            // timezone so a task due today is not reported overdue at midnight UTC.
+            var today = DateOnly.FromDateTime(DateTime.Today);
 
             tasks = tasks.Where(x =>
                 x.DueDate != null

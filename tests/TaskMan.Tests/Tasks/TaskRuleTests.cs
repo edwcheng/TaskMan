@@ -35,9 +35,10 @@ public sealed class TaskRuleTests
     }
 
     [Fact]
-    public void Tags_are_trimmed_and_blank_tags_become_null()
+    public void Tags_are_trimmed_lowercased_and_blank_tags_become_null()
     {
         Assert.Equal("release", TaskRules.NormalizeTag("  release  "));
+        Assert.Equal("release", TaskRules.NormalizeTag("  Release  "));
         Assert.Null(TaskRules.NormalizeTag("  "));
         Assert.Null(TaskRules.NormalizeTag(null));
     }

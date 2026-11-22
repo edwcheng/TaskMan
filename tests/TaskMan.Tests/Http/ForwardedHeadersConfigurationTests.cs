@@ -9,7 +9,7 @@ namespace TaskMan.Tests.Http;
 public sealed class ForwardedHeadersConfigurationTests
 {
     [Fact]
-    public void Defaults_forward_for_and_proto()
+    public void Defaults_forward_for_and_proto_and_compose_network()
     {
         var options = new ForwardedHeadersOptions();
 
@@ -18,6 +18,36 @@ public sealed class ForwardedHeadersConfigurationTests
         Assert.Equal(
             ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
             options.ForwardedHeaders);
+
+        // With no explicit config the Compose bridge network is trusted by default,
+        // so X-Forwarded-From the reverse proxy is honoured (rate limiting sees the
+        // real client IP).
+        Assert.Single(options.KnownIPNetworks);
+        Assert.Equal(
+            IPAddress.Parse("172.16.0.0"),
+            options.KnownIPNetworks.Single().BaseAddress);
+        Assert.Equal(12, options.KnownIPNetworks.Single().PrefixLength);
+        Assert.Empty(options.KnownProxies);
+    }
+
+    [Fact]
+    public void Empty_string_values_are_treated_as_not_configured()
+    {
+        var options = new ForwardedHeadersOptions();
+
+        ForwardedHeadersConfiguration.Apply(
+            options,
+            BuildConfiguration(new Dictionary<string, string?>
+            {
+                ["ForwardedHeaders:KnownProxies"] = string.Empty,
+                ["ForwardedHeaders:KnownNetworks"] = string.Empty,
+            }));
+
+        // Empty values split to nothing, so the default Compose network applies.
+        Assert.Single(options.KnownIPNetworks);
+        Assert.Equal(
+            IPAddress.Parse("172.16.0.0"),
+            options.KnownIPNetworks.Single().BaseAddress);
     }
 
     [Fact]

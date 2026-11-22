@@ -9,11 +9,26 @@ public sealed class ForumRulesTests
     [InlineData("  Bugs & Issues  ", "bugs-issues")]
     [InlineData("Café Déjà Vu", "cafe-deja-vu")]
     [InlineData("v2.0 / Rollout", "v2-0-rollout")]
-    [InlineData("---", "forum")]
-    [InlineData("日本語", "forum")]
     public void Slugify_produces_a_stable_url_slug(string name, string expected)
     {
         Assert.Equal(expected, ForumRules.Slugify(name));
+    }
+
+    [Fact]
+    public void Slugify_falls_back_to_a_hashed_slug_when_no_ascii_remains()
+    {
+        // Names with no ASCII letters/digits (punctuation, CJK, blank) get a
+        // deterministic, URL-safe, distinct slug so they do not collide on "forum".
+        var dash = ForumRules.Slugify("---");
+        var cjk = ForumRules.Slugify("日本語");
+
+        Assert.StartsWith("forum-", dash);
+        Assert.StartsWith("forum-", cjk);
+        Assert.NotEqual(dash, cjk);
+        Assert.Equal(cjk, ForumRules.Slugify("日本語"));
+        Assert.All(cjk, ch => Assert.True(
+            char.IsAsciiLetterLower(ch) || char.IsAsciiDigit(ch) || ch == '-',
+            $"'{ch}' is not URL-safe"));
     }
 
     [Fact]

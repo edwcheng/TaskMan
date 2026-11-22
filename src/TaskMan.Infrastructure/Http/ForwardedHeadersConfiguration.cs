@@ -7,6 +7,11 @@ namespace TaskMan.Infrastructure.Http;
 
 public static class ForwardedHeadersConfiguration
 {
+    // The default Docker Compose bridge network. Used when no proxies or networks
+    // are explicitly configured so that X-Forwarded-For is still trusted from the
+    // reverse proxy (and therefore rate limiting sees the real client IP).
+    public const string DefaultKnownNetwork = "172.16.0.0/12";
+
     public static void Apply(ForwardedHeadersOptions options, IConfiguration configuration)
     {
         options.ForwardedHeaders =
@@ -17,7 +22,7 @@ public static class ForwardedHeadersConfiguration
 
         if (proxies.Count == 0 && networks.Count == 0)
         {
-            return;
+            networks = [DefaultKnownNetwork];
         }
 
         options.KnownProxies.Clear();

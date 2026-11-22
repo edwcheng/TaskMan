@@ -100,7 +100,32 @@ public static class ForumRules
 
         var slug = builder.ToString().Trim('-');
 
-        return slug.Length == 0 ? "forum" : slug;
+        if (slug.Length == 0)
+        {
+            // The name produced no ASCII characters (e.g. pure CJK). Derive a short,
+            // stable, URL-safe slug from the original name so distinct names do not
+            // all collide on "forum".
+            var hash = ComputeHash(name);
+            return $"forum-{hash[..6]}";
+        }
+
+        return slug;
+    }
+
+    private static string ComputeHash(string name)
+    {
+        // FNV-1a 64-bit; stable across runs and platforms.
+        const ulong offsetBasis = 14695981039346656037UL;
+        const ulong prime = 1099511628211UL;
+
+        var hash = offsetBasis;
+        foreach (var character in name)
+        {
+            hash ^= character;
+            hash *= prime;
+        }
+
+        return hash.ToString("x16");
     }
 
     private static bool IsValidSlugCharacter(char character) =>

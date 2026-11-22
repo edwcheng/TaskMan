@@ -44,8 +44,10 @@ public static class TaskRules
             : null;
     }
 
+    // Tags are stored lower-cased so that filtering is an exact, case-insensitive
+    // comparison on the column (index-friendly) rather than a function over it.
     public static string? NormalizeTag(string? tag) =>
-        string.IsNullOrWhiteSpace(tag) ? null : tag.Trim();
+        string.IsNullOrWhiteSpace(tag) ? null : tag.Trim().ToLowerInvariant();
 
     public static bool IsOpen(TaskItemStatus status) =>
         status is not TaskItemStatus.Completed and not TaskItemStatus.Closed;
