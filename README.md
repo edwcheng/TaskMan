@@ -155,6 +155,27 @@ curl -b cookies.txt \
   http://localhost:5000/api/tasks/TASK_ID/replies
 ```
 
+## Web UI
+
+The SPA in `web/` is Vue 3 + Vite + TypeScript with PrimeVue, Pinia, and Vue Router. During development it runs on `http://localhost:5173` and proxies `/api` and `/health` to the API, so session cookies stay same-origin.
+
+Current state (Phase 5 foundation):
+
+- Login page (`/login`): the SPA calls `GET /api/auth/me` on startup to restore the session, signs in through `POST /api/auth/login`, and returns to the page that required sign-in (`?return=`, same-origin paths only). Failed logins show the server message inline; rate-limited logins (`429`) include the `Retry-After` wait.
+- App shell: top bar with global search, theme toggle, and user menu; collapsible forum sidebar; toast outlet.
+- Router guards: protected routes redirect to `/login?return=…`; admin routes bounce non-admins to the task list. The server remains the authority on permissions.
+- Theme: indigo primary on Aura's slate scheme; dark mode toggles `.p-dark` on `<html>` and persists in `localStorage`, as does the sidebar state.
+- Placeholder screens keep navigation functional for tasks, forums, my tasks, task detail/edit, admin screens, and profile; Phases 6–7 replace them with the real boards, editor, and admin UI.
+
+| Route | Guard |
+|---|---|
+| `/login` | anonymous |
+| `/` | redirects to `/tasks` |
+| `/tasks`, `/forums/:slug`, `/my-tasks` | authenticated |
+| `/tasks/new`, `/tasks/:id`, `/tasks/:id/edit` | authenticated |
+| `/admin/users`, `/admin/forums` | admin |
+| `/profile` | authenticated |
+
 ## Database and migrations
 
 The API takes a PostgreSQL advisory lock, applies pending migrations, and seeds the first administrator when `Users` is empty. There is one migrations set in `src/TaskMan.Infrastructure/Persistence/Migrations`.
@@ -178,6 +199,8 @@ dotnet build TaskMan.sln
 dotnet test TaskMan.sln
 
 npm --prefix web run type-check
+npm --prefix web run test
+npm --prefix web run lint
 npm --prefix web run build
 ```
 
