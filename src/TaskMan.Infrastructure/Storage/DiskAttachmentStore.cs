@@ -71,15 +71,27 @@ public sealed class DiskAttachmentStore(
     {
         var path = FinalPath(attachmentId);
 
-        return File.Exists(path)
-            ? new FileStream(
+        try
+        {
+            return new FileStream(
                 path,
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.Delete,
                 BufferSize,
-                FileOptions.Asynchronous)
-            : null;
+                FileOptions.Asynchronous);
+        }
+        catch (FileNotFoundException)
+        {
+            // The file was removed between the caller's checks; report it as
+            // missing so the caller can answer 404.
+            return null;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Same case where the shard directory was never created.
+            return null;
+        }
     }
 
     public void Delete(Guid attachmentId)
@@ -120,6 +132,10 @@ public sealed class DiskAttachmentStore(
         catch (FileNotFoundException)
         {
             // Already gone.
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // The shard directory was never created.
         }
     }
 }

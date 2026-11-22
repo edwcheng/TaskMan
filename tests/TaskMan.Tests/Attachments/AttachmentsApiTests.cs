@@ -400,6 +400,50 @@ public sealed class AttachmentsApiTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task The_database_rejects_an_eleventh_attachment_for_a_parent()
+    {
+        var (admin, taskId) = await CreateTaskAsync("Upload db limit");
+        using var _ = admin;
+
+        await using var scope = fixture.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var adminId = await db.Users
+            .AsNoTracking()
+            .Where(x => x.UserName == ApiFixture.AdminUserName)
+            .Select(x => x.Id)
+            .SingleAsync();
+
+        Task InsertAsync(Guid id, string fileName) =>
+            db.Database.ExecuteSqlAsync($"""
+                INSERT INTO "Attachments"
+                    ("Id", "TaskId", "ReplyId", "FileName", "ContentType", "SizeBytes", "UploadedById", "CreatedAt")
+                VALUES
+                    ({id}, {taskId}, NULL, {fileName}, 'text/plain', 1, {adminId}, NOW());
+                """);
+
+        // Fill the whole quota with direct inserts so the API's (non-atomic)
+        // count check is bypassed.
+        for (var i = 0; i < AttachmentRules.MaxAttachmentsPerParent; i++)
+        {
+            await InsertAsync(Guid.NewGuid(), $"db-{i}.txt");
+        }
+
+        var exception = await Record.ExceptionAsync(
+            () => InsertAsync(Guid.NewGuid(), "db-11.txt"));
+
+        Assert.NotNull(exception);
+        Assert.Contains(
+            $"at most {AttachmentRules.MaxAttachmentsPerParent} attachments",
+            exception!.Message,
+            StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(
+            AttachmentRules.MaxAttachmentsPerParent,
+            await db.Attachments.CountAsync(x => x.TaskId == taskId));
+    }
+
+    [Fact]
     public async Task Upload_rolls_back_the_file_when_the_insert_fails()
     {
         var (admin, taskId) = await CreateTaskAsync("Upload rollback");
